@@ -46,4 +46,4 @@ def action(ttype,thing, action):
     return jsonify({'res':res}), res
 
 if __name__ == "__main__":
-   app.run(port=2244, debug=False)
+   app.run(port=2240, debug=False)
