@@ -1,4 +1,4 @@
-#import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO
 from flask import Flask, jsonify
 import time
 
@@ -46,4 +46,4 @@ def action(ttype,thing, action):
     return jsonify({'res':res}), res
 
 if __name__ == "__main__":
-   app.run(port=2240, debug=False)
+   app.run(host='0.0.0.0', port=82, debug=False)
