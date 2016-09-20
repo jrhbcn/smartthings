@@ -16,8 +16,8 @@ metadata {
 		capability "Actuator"
 		capability "Button"
 		capability "Sensor"
-        
-		attribute "status", "enum", ["online", "offline"]
+		capability "windowShade"        
+		//attribute "status", "enum", ["online", "offline"]
 
 		command "up"
         command "stop"
@@ -28,17 +28,15 @@ metadata {
 	}
 
 	simulator {
-
 	}
+    
 	tiles(scale:2) {
-
 		multiAttributeTile(name:"blind", type: "generic", width: 6, height: 4) {
 			tileAttribute ("device.status", key: "PRIMARY_CONTROL") {
            		attributeState("online", label:'${name}', icon:"st.Home.home9", backgroundColor:"#79b821")
-            	attributeState("offline", label:'${name}', icon:"st.Home.home9", backgroundColor:"#ffa81e")   
+            	//attributeState("offline", label:'${name}', icon:"st.Home.home9", backgroundColor:"#ffa81e")   
  			}
-		}
-        
+		}       
  		standardTile("up", "device.button", width: 2, height: 2) {
 			state "default", label: "Up", backgroundColor: "#ffffff", action: "up", icon:"http://cdn.device-icons.smartthings.com/thermostat/thermostat-up@2x.png"
 		} 
@@ -52,24 +50,7 @@ metadata {
 	}
 }
 
-def handlerScheduler() {
-    log.debug "handlerMethod called at ${new Date()}"
-    try {
-    httpPost("http://192.168.0.160:2240/blinds/${name}/status", "") { resp ->
-        log.debug "response data: ${resp.data}"
-        log.debug "response contentType: ${resp.contentType}"
-        if (resp.data == "ok") {
-			sendEvent(name: "status", value: "online", isStateChange: true)
-        } else {
-			sendEvent(name: "status", value: "offline", isStateChange: true)
-        }
-    }
-	} catch (e) {
-    	log.debug "something went wrong: $e"
-		sendEvent(name: "status", value: "offline", isStateChange: true)
-	}
-}
-
+/*
 def installed() {
 	initialize()
 }
@@ -84,13 +65,47 @@ def initialize() {
     //runEvery3Hours(handlerScheduler)
 }
 
+def handlerScheduler() {
+    log.debug "handlerMethod called at ${new Date()}"
+	log.debug "Requesting http://192.168.0.160:2240/status"
+    try {
+    httpPost("http://192.168.0.160:2240/status", "") { resp ->
+        log.debug "response data: ${resp.data}"
+        log.debug "response contentType: ${resp.contentType}"
+        if (resp.data == "online") {
+			sendEvent(name: "status", value: "online", isStateChange: true)
+        } else {
+			sendEvent(name: "status", value: "offline", isStateChange: true)
+        }
+    }
+	} catch (e) {
+    	log.debug "something went wrong: $e"
+		sendEvent(name: "status", value: "offline", isStateChange: true)
+	}
+}
+*/
 
 def parse(String description) {
-	
+	log.debug "Parsing '${description}'"
+    def msg = parseLanMessage(description)
+    log.debug msg
 }
 
-def http_command(command)
+private http_command(uri) {
+	log.debug("Executing hubaction ${uri} on " + getHostAddress())
+
+    def hubAction = new physicalgraph.device.HubAction(
+    	method: "GET",
+        path: uri,
+        headers: [HOST:getHostAddress()])
+
+    return hubAction
+}
+
+
+def http_command2(command)
 {
+	log.debug "Requesting http://192.168.0.160:2240/blinds/${name}/${command}"
     try {
     httpPost("http://192.168.0.160:2240/blinds/${name}/${command}", "") { resp ->
         log.debug "response data: ${resp.data}"
@@ -101,17 +116,53 @@ def http_command(command)
 	}
 }
 
+
+def open() {
+	up()
+}
+
+def close() {
+	down()
+}
+
+def presetPosition() {}
+
 def up() {
-    http_command("up")
+	def cmds = []
+	cmds << http_command("/blinds/${name}/up")
+    log.debug cmds
 	sendEvent(name: "up", value: "pushed", data: [buttonNumber: "1"], descriptionText: "$device.displayName up button was pushed", isStateChange: true)
+    return cmds
 }
 
 def stop() {
-    http_command("stop")
+	def cmds = []
+	cmds << http_command("/blinds/${name}/stop")
+    log.debug cmds
 	sendEvent(name: "stop", value: "pushed", data: [buttonNumber: "2"], descriptionText: "$device.displayName stop button was pushed", isStateChange: true)
+    return cmds
 }
 
 def down() {
-    http_command("down")
+   	def cmds = []
+	cmds << http_command("/blinds/${name}/down")
+    log.debug cmds
 	sendEvent(name: "down", value: "pushed", data: [buttonNumber: "3"], descriptionText: "$device.displayName down button was pushed", isStateChange: true)
+	return cmds
 }
+
+def getHostAddress() {
+	return "192.168.0.160:82"
+}
+
+/*
+private String convertIPtoHex(ipAddress) { 
+    String hex = ipAddress.tokenize( '.' ).collect {  String.format( '%02x', it.toInteger() ) }.join()
+    return hex
+
+}
+private String convertPortToHex(port) {
+	String hexport = port.toString().format( '%04x', port.toInteger() )
+    return hexport
+}
+*/
