@@ -53,7 +53,7 @@ metadata {
     tiles (scale: 2) {      
         multiAttributeTile(name:"switch", type: "generic", width: 6, height: 4, canChangeIcon: true) {
             tileAttribute ("state2", key: "PRIMARY_CONTROL") {
-                attributeState "ofline", label:'${name}', action:"", backgroundColor:"#777777", icon: "http://cdn.device-icons.smartthings.com/Appliances/appliances17-icn@2x.png"
+                attributeState "offline", label:'${name}', action:"", backgroundColor:"#555555", icon: "st.switches.switch.off"
                 attributeState "on", label:'${name}', action:"switch.off", backgroundColor:"#79b821", icon: "st.switches.switch.on", nextState:"turningOff"
                 attributeState "off", label:'${name}', action:"switch.on", backgroundColor:"#ffffff", icon: "st.switches.switch.off", nextState:"turningOn"
                 attributeState "turningOn", label:'${name}', action:"switch.off", backgroundColor:"#79b821", icon: "st.switches.switch.off", nextState:"turningOff"
@@ -104,12 +104,12 @@ def configureInstant(ip, port, pos){
 }
 
 def parse(description) {
-    log.debug "Parsing: ${description}"
+    //log.debug "Parsing: ${description}"
     def events = []
     def cmds
     def descMap = parseDescriptionAsMap(description)
     def body
-    log.debug "descMap: ${descMap}"
+    //log.debug "descMap: ${descMap}"
 
     if (!state.mac || state.mac != descMap["mac"]) {
         log.debug "Mac address of device found ${descMap["mac"]}"
@@ -150,6 +150,7 @@ def parse(description) {
                 if (result.success == "true") state.configured = true
             }
             if (result.containsKey("uptime")) {
+                log.debug "[parse()] result constains uptime"
                 state.uptime = result.uptime
             }
         } else {
@@ -170,11 +171,10 @@ def parse(description) {
         hubInfoText = hubInfoText + "Uptime: " + state.uptime
         def c = new GregorianCalendar()
         // Do not know if I need this:         events << createEvent(name: 'state2', value: device.switch )
+        log.debug "[parse()] updating last_live"
         events << createEvent(name: "last_live", value: c.time.time)
-        sendEvent(name: 'last_live', value: c.time.time)
         //def ping = ttl()
         //sendEvent(name: 'ttl', value: ping)
-       //log.debug "Pinging ${device.deviceNetworkId}: ${ping}"
     }
     if (state.configured == true) {
         hubInfoText = hubInfoText + "\r\n - Configured: Yes"
@@ -198,14 +198,19 @@ def parseDescriptionAsMap(description) {
 }
 
 def poll() {
-	def last_request = device.latestValue("last_request")
+
+    def last_request = device.latestValue("last_request")
     def last_live = device.latestValue("last_live")
+        
     if(!last_request) {
     	last_request = 0
     }
     if(!last_live) {
     	last_live = 0
     }
+
+    log.debug "[poll()] last_request: ${last_request}"
+    log.debug "[poll()] last_live: ${last_live}"
 
 	def c = new GregorianCalendar()
     
