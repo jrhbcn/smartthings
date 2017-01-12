@@ -52,19 +52,20 @@ metadata {
 
     tiles (scale: 2) {      
         multiAttributeTile(name:"switch", type: "generic", width: 6, height: 4, canChangeIcon: true) {
-	        tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+            tileAttribute ("state2", key: "PRIMARY_CONTROL") {
+                attributeState "ofline", label:'${name}', action:"", backgroundColor:"#777777", icon: "http://cdn.device-icons.smartthings.com/Appliances/appliances17-icn@2x.png"
                 attributeState "on", label:'${name}', action:"switch.off", backgroundColor:"#79b821", icon: "st.switches.switch.on", nextState:"turningOff"
-		        attributeState "off", label:'${name}', action:"switch.on", backgroundColor:"#ffffff", icon: "st.switches.switch.off", nextState:"turningOn"
-		        attributeState "turningOn", label:'${name}', action:"switch.off", backgroundColor:"#79b821", icon: "st.switches.switch.off", nextState:"turningOff"
-		        attributeState "turningOff", label:'${name}', action:"switch.on", backgroundColor:"#ffffff", icon: "st.switches.switch.on", nextState:"turningOn"
-	        }
+                attributeState "off", label:'${name}', action:"switch.on", backgroundColor:"#ffffff", icon: "st.switches.switch.off", nextState:"turningOn"
+                attributeState "turningOn", label:'${name}', action:"switch.off", backgroundColor:"#79b821", icon: "st.switches.switch.off", nextState:"turningOff"
+                attributeState "turningOff", label:'${name}', action:"switch.on", backgroundColor:"#ffffff", icon: "st.switches.switch.on", nextState:"turningOn"
+            }
         }
     	standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-	        state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
-	    }
+            state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
+        }
         standardTile("configure", "device.configure", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
-	        state "configure", label:'', action:"configuration.configure", icon:"st.secondary.configure"
-	    }
+            state "configure", label:'', action:"configuration.configure", icon:"st.secondary.configure"
+        }
         valueTile("reboot", "device.reboot", decoration: "flat", height: 2, width: 2, inactiveLabel: false, canChangeIcon: false) {
             state "default", label:"Reboot", action:"reboot", icon:"", backgroundColor:"#FFFFFF"
         }
