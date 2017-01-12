@@ -14,6 +14,11 @@
  *
  *  Author: Eric Maycock (erocm123)
  *  Date: 2016-06-02
+ *
+ *  Author: Javier Ruiz (jrhbcn)
+ *  Date: 2017-01-12
+ *  Added support for polling offline status
+ * 
  */
  
 import groovy.json.JsonSlurper
@@ -27,6 +32,12 @@ metadata {
         capability "Configuration"
         capability "Temperature Measurement"
 		capability "Relative Humidity Measurement"
+        
+        capability "Polling"
+        
+        attribute "state2", "enum", ["on", "off", "offline"]
+        attribute "last_request", "number"
+        attribute "last_live", "number"
         
         command "reboot"
 	}
@@ -47,7 +58,8 @@ metadata {
 
 	tiles (scale: 2){      
 		multiAttributeTile(name:"switch", type: "generic", width: 6, height: 4, canChangeIcon: true){
-			tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+			tileAttribute ("state2", key: "PRIMARY_CONTROL") {
+				attributeState "offline", label:'${name}', action:"", backgroundColor:"#555555", icon: "st.switches.switch.off"
 				attributeState "on", label:'${name}', action:"switch.off", backgroundColor:"#79b821", icon: "st.switches.switch.on", nextState:"turningOff"
 				attributeState "off", label:'${name}', action:"switch.on", backgroundColor:"#ffffff", icon: "st.switches.switch.off", nextState:"turningOn"
 				attributeState "turningOn", label:'${name}', action:"switch.off", backgroundColor:"#79b821", icon: "st.switches.switch.off", nextState:"turningOff"
@@ -145,6 +157,7 @@ def parse(description) {
         def myLED = result.Sensors.find { it.TaskName == "LED" }
         if (mySwitch) { 
             events << createEvent(name:"switch", value: (mySwitch.Switch.toInteger() == 0 ? 'off' : 'on'))
+            events << createEvent(name:"state2", value: (mySwitch.Switch.toInteger() == 0 ? 'off' : 'on'))
             state.switchConfigured = true
         }
         if (myButton) state.buttonConfigured = true
@@ -152,14 +165,17 @@ def parse(description) {
     }
     if (result.containsKey("pin")) {
         if (result.pin == 12) events << createEvent(name:"switch", value: (result.state.toInteger() == 0 ? 'off' : 'on'))
+        if (result.pin == 12) events << createEvent(name:"state2", value: (result.state.toInteger() == 0 ? 'off' : 'on'))
     }
     if (result.containsKey("power")) {
         events << createEvent(name: "switch", value: result.power)
+        events << createEvent(name: "state2", value: result.power)
     }
     if (result.containsKey("success")) {
         if (result.success == "true") state.configured = true
     }
     if (result.containsKey("uptime")) {
+        log.debug "[parse()] result constains uptime"
         state.uptime = result.uptime
     }
     if (result.containsKey("temperature")) {
@@ -194,6 +210,12 @@ def parse(description) {
     }
     if (state.uptime) {
         hubInfoText = hubInfoText + "Uptime: " + state.uptime
+        def c = new GregorianCalendar()
+        // Do not know if I need this:         events << createEvent(name: 'state2', value: device.switch )
+        log.debug "[parse()] updating last_live"
+        events << createEvent(name: "last_live", value: c.time.time)
+        //def ping = ttl()
+        //sendEvent(name: 'ttl', value: ping)
     }
     if (state.configured == true) {
         hubInfoText = hubInfoText + "\r\n - Configured: Yes"
@@ -244,6 +266,31 @@ def parseDescriptionAsMap(description) {
 	}
 }
 
+def poll() {
+
+    def last_request = device.latestValue("last_request")
+    def last_live = device.latestValue("last_live")
+        
+    if(!last_request) {
+    	last_request = 0
+    }
+    if(!last_live) {
+    	last_live = 0
+    }
+
+    log.debug "[poll()] last_request: ${last_request}"
+    log.debug "[poll()] last_live: ${last_live}"
+
+	def c = new GregorianCalendar()
+    
+    if(last_live < last_request) { 
+    	sendEvent(name: 'state2', value: "offline")  
+        //sendEvent(name: 'ttl', value: ttl())
+    }
+    sendEvent(name: 'last_request', value: c.time.time)
+    
+    refresh()
+}
 
 def on() {
 	log.debug "on()"
