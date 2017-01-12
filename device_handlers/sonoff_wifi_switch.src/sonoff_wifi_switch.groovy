@@ -14,76 +14,83 @@
  *
  *  Author: Eric Maycock (erocm123)
  *  Date: 2016-06-02
+ *
+ *  Author: Javier Ruiz (jrhbcn)
+ *  Date: 2017-01-12
+ *  Added support for polling offline status
+ * 
  */
  
 import groovy.json.JsonSlurper
 import groovy.util.XmlSlurper
 
 metadata {
-	definition (name: "Sonoff Wifi Switch", namespace: "erocm123", author: "Eric Maycock") {
+    definition (name: "Sonoff Wifi Switch", namespace: "erocm123", author: "Eric Maycock") {
         capability "Actuator"
-		capability "Switch"
-		capability "Refresh"
-		capability "Sensor"
+        capability "Switch"
+        capability "Refresh"
+        capability "Sensor"
         capability "Configuration"
+        capability "Polling"
         
+        attribute "state2", "enum", ["on", "off", "offline"]
+        attribute "last_request", "number"
+        attribute "last_live", "number"
+    
         command "reboot"
-	}
+    }
 
-	simulator {
-	}
+    simulator {
+    }
     
     preferences {
         input("powerOnState", "enum", title:"Boot Up State", description: "State of the relay when it boots up", required: false, displayDuringSetup: false, options: [[0:"Off"],[1:"On"],[2:"Previous State"]])
         input("password", "password", title:"Password", required:false, displayDuringSetup:true)
         input("override", "boolean", title:"Override detected IP Address", required: false, displayDuringSetup: false)
         input("ip", "string", title:"IP Address", description: "192.168.1.150", required: false, displayDuringSetup: false)
-	}
+    }
 
-	tiles (scale: 2){      
-		multiAttributeTile(name:"switch", type: "generic", width: 6, height: 4, canChangeIcon: true){
-			tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-				attributeState "on", label:'${name}', action:"switch.off", backgroundColor:"#79b821", icon: "st.switches.switch.on", nextState:"turningOff"
-				attributeState "off", label:'${name}', action:"switch.on", backgroundColor:"#ffffff", icon: "st.switches.switch.off", nextState:"turningOn"
-				attributeState "turningOn", label:'${name}', action:"switch.off", backgroundColor:"#79b821", icon: "st.switches.switch.off", nextState:"turningOff"
-				attributeState "turningOff", label:'${name}', action:"switch.on", backgroundColor:"#ffffff", icon: "st.switches.switch.on", nextState:"turningOn"
-			}
+    tiles (scale: 2) {      
+        multiAttributeTile(name:"switch", type: "generic", width: 6, height: 4, canChangeIcon: true) {
+	        tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
+                attributeState "on", label:'${name}', action:"switch.off", backgroundColor:"#79b821", icon: "st.switches.switch.on", nextState:"turningOff"
+		        attributeState "off", label:'${name}', action:"switch.on", backgroundColor:"#ffffff", icon: "st.switches.switch.off", nextState:"turningOn"
+		        attributeState "turningOn", label:'${name}', action:"switch.off", backgroundColor:"#79b821", icon: "st.switches.switch.off", nextState:"turningOff"
+		        attributeState "turningOff", label:'${name}', action:"switch.on", backgroundColor:"#ffffff", icon: "st.switches.switch.on", nextState:"turningOn"
+	        }
         }
-
-		standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-			state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
-		}
+    	standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+	        state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
+	    }
         standardTile("configure", "device.configure", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
-			state "configure", label:'', action:"configuration.configure", icon:"st.secondary.configure"
-		}
+	        state "configure", label:'', action:"configuration.configure", icon:"st.secondary.configure"
+	    }
         valueTile("reboot", "device.reboot", decoration: "flat", height: 2, width: 2, inactiveLabel: false, canChangeIcon: false) {
             state "default", label:"Reboot", action:"reboot", icon:"", backgroundColor:"#FFFFFF"
         }
         valueTile("hubInfo", "device.hubInfo", decoration: "flat", height: 2, width: 6, inactiveLabel: false, canChangeIcon: false) {
             state "hubInfo", label:'${currentValue}' //backgroundColor:"#FFFFFF"
         }
-        
     }
 
-	main(["switch"])
-	details(["switch",
-             "refresh","configure","reboot",
-             "hubInfo"])
+    main(["switch"])
+    details(["switch","refresh","configure","reboot","hubInfo"])
+	
 }
 
 def installed() {
-	log.debug "installed()"
-	configure()
+    log.debug "installed()"
+    configure()
 }
 
 def updated() {
-	log.debug "updated()"
+    log.debug "updated()"
     configure()
 }
 
 def configure() {
-	log.debug "configure()"
-	log.debug "Configuring Device For SmartThings Use"
+    log.debug "configure()"
+    log.debug "Configuring Device For SmartThings Use"
     sendEvent(name:"hubInfo", value:"Sonoff switch still being configured", displayed:false) 
     if (ip != null && ip != "" && override == "true") state.dni = setDeviceNetworkId(ip, "80")
     state.hubIP = device.hub.getDataValue("localIP")
@@ -96,55 +103,57 @@ def configureInstant(ip, port, pos){
 }
 
 def parse(description) {
-	//log.debug "Parsing: ${description}"
+    log.debug "Parsing: ${description}"
     def events = []
     def cmds
     def descMap = parseDescriptionAsMap(description)
     def body
-    //log.debug "descMap: ${descMap}"
+    log.debug "descMap: ${descMap}"
 
     if (!state.mac || state.mac != descMap["mac"]) {
-		log.debug "Mac address of device found ${descMap["mac"]}"
+        log.debug "Mac address of device found ${descMap["mac"]}"
         updateDataValue("mac", descMap["mac"])
-	}
+    }
     
     if (state.mac != null && state.dni != state.mac) state.dni = setDeviceNetworkId(state.mac)
     if (descMap["body"]) body = new String(descMap["body"].decodeBase64())
 
     if (body && body != "") {
     
-    if(body.startsWith("{") || body.startsWith("[")) {
-    def slurper = new JsonSlurper()
-    def result = slurper.parseText(body)
+        if(body.startsWith("{") || body.startsWith("[")) {
+            def slurper = new JsonSlurper()
+            def result = slurper.parseText(body)
+            log.debug "result: ${result}"
     
-    //log.debug "result: ${result}"
-    
-    if (result.containsKey("Sensors")) {
-        def mySwitch = result.Sensors.find { it.TaskName == "SWITCH" }
-        def myButton = result.Sensors.find { it.TaskName == "BUTTON" }
-        def myLED = result.Sensors.find { it.TaskName == "LED" }
-        if (mySwitch) { 
-            events << createEvent(name:"switch", value: (mySwitch.Switch.toInteger() == 0 ? 'off' : 'on'))
-            state.switchConfigured = true
+            if (result.containsKey("Sensors")) {
+                def mySwitch = result.Sensors.find { it.TaskName == "SWITCH" }
+                def myButton = result.Sensors.find { it.TaskName == "BUTTON" }
+                def myLED = result.Sensors.find { it.TaskName == "LED" }
+                if (mySwitch) { 
+                    events << createEvent(name:"switch", value: (mySwitch.Switch.toInteger() == 0 ? 'off' : 'on'))
+                    events << createEvent(name:"state2", value: (mySwitch.Switch.toInteger() == 0 ? 'off' : 'on'))
+                    state.switchConfigured = true
+                }
+                if (myButton) state.buttonConfigured = true
+                //if (myLED) log.debug "LED is ${(myLED.Switch.toInteger() == 0 ? 'off' : 'on')}"
+            }
+            if (result.containsKey("pin")) {
+                if (result.pin == 12) events << createEvent(name:"switch", value: (result.state.toInteger() == 0 ? 'off' : 'on'))
+                if (result.pin == 12) events << createEvent(name:"state2", value: (result.state.toInteger() == 0 ? 'off' : 'on'))
+            }
+            if (result.containsKey("power")) {
+                events << createEvent(name: "switch", value: result.power)
+                events << createEvent(name: "state2", value: result.power)
+            }
+            if (result.containsKey("success")) {
+                if (result.success == "true") state.configured = true
+            }
+            if (result.containsKey("uptime")) {
+                state.uptime = result.uptime
+            }
+        } else {
+            log.debug "Response is not JSON: $body"
         }
-        if (myButton) state.buttonConfigured = true
-        //if (myLED) log.debug "LED is ${(myLED.Switch.toInteger() == 0 ? 'off' : 'on')}"
-    }
-    if (result.containsKey("pin")) {
-        if (result.pin == 12) events << createEvent(name:"switch", value: (result.state.toInteger() == 0 ? 'off' : 'on'))
-    }
-    if (result.containsKey("power")) {
-        events << createEvent(name: "switch", value: result.power)
-    }
-    if (result.containsKey("success")) {
-        if (result.success == "true") state.configured = true
-    }
-    if (result.containsKey("uptime")) {
-        state.uptime = result.uptime
-    }
-    } else {
-        //log.debug "Response is not JSON: $body"
-    }
     } else {
         cmds = refresh()
     }
@@ -158,6 +167,13 @@ def parse(description) {
     }
     if (state.uptime) {
         hubInfoText = hubInfoText + "Uptime: " + state.uptime
+        def c = new GregorianCalendar()
+        // Do not know if I need this:         events << createEvent(name: 'state2', value: device.switch )
+        events << createEvent(name: "last_live", value: c.time.time)
+        sendEvent(name: 'last_live', value: c.time.time)
+        //def ping = ttl()
+        //sendEvent(name: 'ttl', value: ping)
+       //log.debug "Pinging ${device.deviceNetworkId}: ${ping}"
     }
     if (state.configured == true) {
         hubInfoText = hubInfoText + "\r\n - Configured: Yes"
@@ -173,11 +189,32 @@ def parse(description) {
 
 def parseDescriptionAsMap(description) {
 	description.split(",").inject([:]) { map, param ->
-		def nameAndValue = param.split(":")
+	    def nameAndValue = param.split(":")
         
         if (nameAndValue.length == 2) map += [(nameAndValue[0].trim()):nameAndValue[1].trim()]
         else map += [(nameAndValue[0].trim()):""]
 	}
+}
+
+def poll() {
+	def last_request = device.latestValue("last_request")
+    def last_live = device.latestValue("last_live")
+    if(!last_request) {
+    	last_request = 0
+    }
+    if(!last_live) {
+    	last_live = 0
+    }
+
+	def c = new GregorianCalendar()
+    
+    if(last_live < last_request) { 
+    	sendEvent(name: 'state2', value: "offline")  
+        //sendEvent(name: 'ttl', value: ttl())
+    }
+    sendEvent(name: 'last_request', value: c.time.time)
+    
+    refresh()
 }
 
 
