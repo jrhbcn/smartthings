@@ -38,6 +38,7 @@ metadata {
         attribute "last_live", "number"
     
         command "reboot"
+        command "force_refresh"
     }
 
     simulator {
@@ -197,33 +198,6 @@ def parseDescriptionAsMap(description) {
 	}
 }
 
-def poll() {
-
-    def last_request = device.latestValue("last_request")
-    def last_live = device.latestValue("last_live")
-        
-    if(!last_request) {
-    	last_request = 0
-    }
-    if(!last_live) {
-    	last_live = 0
-    }
-
-    log.debug "[poll()] last_request: ${last_request}"
-    log.debug "[poll()] last_live: ${last_live}"
-
-	def c = new GregorianCalendar()
-    
-    if(last_live < last_request) { 
-    	sendEvent(name: 'state2', value: "offline")  
-        //sendEvent(name: 'ttl', value: ttl())
-    }
-    sendEvent(name: 'last_request', value: c.time.time)
-    
-    refresh()
-}
-
-
 def on() {
 	log.debug "on()"
     def cmds = []
@@ -238,8 +212,38 @@ def off() {
     return cmds
 }
 
+def poll() {    
+    refresh()
+}
+
+def force_refresh() {    
+    refresh()
+}
+
 def refresh() {
 	log.debug "refresh()"
+    
+    def last_request = device.latestValue("last_request")
+    def last_live = device.latestValue("last_live")
+        
+    if(!last_request) {
+    	last_request = 0
+    }
+    if(!last_live) {
+    	last_live = 0
+    }
+
+    log.debug "[refresh()] last_request: ${last_request}"
+    log.debug "[refresh()] last_live: ${last_live}"
+
+	def c = new GregorianCalendar()
+    
+    if(last_live < last_request) { 
+    	sendEvent(name: 'state2', value: "offline")  
+        //sendEvent(name: 'ttl', value: ttl())
+    }
+    
+    sendEvent(name: 'last_request', value: c.time.time)
     def cmds = []
     cmds << getAction("/status")
     return cmds
