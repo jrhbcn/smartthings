@@ -37,7 +37,7 @@ metadata {
 		multiAttributeTile(name:"smoke", type: "generic", width: 6, height: 4) {
 			tileAttribute ("device.smoke", key: "PRIMARY_CONTROL") {
            		attributeState("clear", label:'clear', icon:"st.alarm.smoke.clear", backgroundColor:"#ffffff")
-            	attributeState("detected", label:'SMOKE', icon:"st.alarm.smoke.smoke", backgroundColor:"#e86d13")   
+            	attributeState("detected", label:'GAS', icon:"st.alarm.smoke.smoke", backgroundColor:"#e86d13")   
  			}
 		}
         standardTile("configure", "device.configure", inactiveLabel: false, decoration: "flat", width: 1, height: 1) {
